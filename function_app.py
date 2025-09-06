@@ -37,7 +37,7 @@ def _get_engine():
 @app.route(route="health", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def health(req: func.HttpRequest) -> func.HttpResponse:
     # Health NO debe depender de la DB
-    return func.HttpResponse('{"status":"ok"}', mimetype="application/json")
+    return func.HttpResponse('{"status":"ok", "version":"1.0"}', mimetype="application/json")
 
 @app.route(route="profile/{username?}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def profile(req: func.HttpRequest) -> func.HttpResponse:
@@ -69,24 +69,22 @@ def profile(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500, mimetype="application/json"
         )
 
+@app.function_name(name="diag")
 @app.route(route="diag", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def diag(req: func.HttpRequest) -> func.HttpResponse:
     present = bool(os.getenv("DATABASE_URL"))
-    engine_ok = False
-    detail = None
     eng = _get_engine()
+    if not present:
+        return func.HttpResponse('{"has_database_url":false}', mimetype="application/json", status_code=500)
     if eng is None:
-        detail = "no-sqlalchemy-or-no-DATABASE_URL"
-    else:
-        try:
-            from sqlalchemy import text
-            with eng.connect() as c:
-                c.execute(text("SELECT 1"))
-            engine_ok = True
-        except Exception as e:
-            detail = str(e)
-            logging.exception("Engine connect failed")
-    payload = {"has_sqlalchemy": _have_sqlalchemy, "has_database_url": present, "engine_connect_ok": engine_ok, "detail": detail}
-    return func.HttpResponse(json.dumps(payload), mimetype="application/json")
+        return func.HttpResponse('{"engine":"missing"}', mimetype="application/json", status_code=500)
+    try:
+        from sqlalchemy import text
+        with eng.connect() as c:
+            c.execute(text("SELECT 1"))
+        return func.HttpResponse('{"ok":true}', mimetype="application/json")
+    except Exception as e:
+        return func.HttpResponse(f'{{"ok":false,"detail":"{e}"}}', mimetype="application/json", status_code=500)
+
 
 # tu /health y /profile tal como los tienes
