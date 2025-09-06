@@ -36,7 +36,7 @@ def _get_engine():
 @app.route(route="health", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def health(req: func.HttpRequest) -> func.HttpResponse:
     # Health NO debe depender de la DB
-    return func.HttpResponse('{"status":"ok", "version":"1.0"}', mimetype="application/json")
+    return func.HttpResponse('{"status":"ok", "version":"1.1"}', mimetype="application/json")
 
 @app.route(route="profile/{username?}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def profile(req: func.HttpRequest) -> func.HttpResponse:
