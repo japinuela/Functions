@@ -1,4 +1,4 @@
-import os, json, logging
+import sys, os, json, logging
 import azure.functions as func
 from typing import Optional
 from sqlalchemy import create_engine, text
@@ -86,5 +86,30 @@ def diag(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         return func.HttpResponse(f'{{"ok":false,"detail":"{e}"}}', mimetype="application/json", status_code=500)
 
+@app.function_name(name="diag_lite")
+@app.route(route="diag-lite", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def diag_lite(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        # No tocar SQL aquí, solo señales del runtime
+        has_db_url = bool(os.getenv("DATABASE_URL"))
+        try:
+            import sqlalchemy  # noqa
+            has_sqlalchemy = True
+        except Exception:
+            has_sqlalchemy = False
 
-# tu /health y /profile tal como los tienes
+        payload = {
+            "python": sys.version,
+            "has_DATABASE_URL": has_db_url,
+            "has_sqlalchemy": has_sqlalchemy,
+            "env_flags": {
+                "FUNCTIONS_WORKER_RUNTIME": os.getenv("FUNCTIONS_WORKER_RUNTIME"),
+                "FUNCTIONS_EXTENSION_VERSION": os.getenv("FUNCTIONS_EXTENSION_VERSION"),
+                "SCM_DO_BUILD_DURING_DEPLOYMENT": os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"),
+                "WEBSITE_RUN_FROM_PACKAGE": os.getenv("WEBSITE_RUN_FROM_PACKAGE"),
+            }
+        }
+        return func.HttpResponse(json.dumps(payload), mimetype="application/json")
+    except Exception as e:
+        logging.exception("diag-lite failed")
+        return func.HttpResponse(f'{{"error":"{e}"}}', mimetype="application/json", status_code=500)
