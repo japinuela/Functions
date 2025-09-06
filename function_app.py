@@ -115,6 +115,7 @@ def diag_lite(req: func.HttpRequest) -> func.HttpResponse:
         logging.exception("diag-lite failed")
         return func.HttpResponse(f'{{"error":"{e}"}}', mimetype="application/json", status_code=500)
 
+
 @app.function_name(name="diag_db")
 @app.route(route="diag-db", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def diag_db(req: func.HttpRequest) -> func.HttpResponse:
