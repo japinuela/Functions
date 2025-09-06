@@ -69,7 +69,6 @@ def profile(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500, mimetype="application/json"
         )
 
-
 @app.route(route="diag", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def diag(req: func.HttpRequest) -> func.HttpResponse:
     present = bool(os.getenv("DATABASE_URL"))
