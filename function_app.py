@@ -3,7 +3,7 @@ import azure.functions as func
 from typing import Optional
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
-
+import pymysql
 
 app = func.FunctionApp()
 
