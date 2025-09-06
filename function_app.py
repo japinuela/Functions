@@ -1,6 +1,9 @@
 import os, json, logging
 import azure.functions as func
 from typing import Optional
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
+
 
 app = func.FunctionApp()
 
@@ -39,7 +42,8 @@ def health(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="profile/{username?}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def profile(req: func.HttpRequest) -> func.HttpResponse:
     username = req.route_params.get("username") or req.params.get("username") or "juan"
-    engine = get_engine()
+    present = bool(os.getenv("DATABASE_URL"))
+    engine = _get_engine()
     if engine is None:
         return func.HttpResponse(
             '{"status":"config_error","detail":"DATABASE_URL no definido"}',
