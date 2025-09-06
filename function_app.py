@@ -21,7 +21,7 @@ engine = create_engine(
 app = func.FunctionApp()
 
 @app.function_name(name="profile")
-@app.route(route="profile/{username?}", auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="profile/{username?}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def profile(req: func.HttpRequest) -> func.HttpResponse:
     username = req.route_params.get("username") or req.params.get("username") or "juan"
     try:
