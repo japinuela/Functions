@@ -1,6 +1,8 @@
 import sys, os, json, logging
 import azure.functions as func
 from typing import Optional
+import socket
+from urllib.parse import urlparse
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -36,7 +38,7 @@ def _get_engine():
 @app.route(route="health", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def health(req: func.HttpRequest) -> func.HttpResponse:
     # Health NO debe depender de la DB
-    return func.HttpResponse('{"status":"ok", "version":"1.1"}', mimetype="application/json")
+    return func.HttpResponse('{"status":"ok", "version":"1.2"}', mimetype="application/json")
 
 @app.route(route="profile/{username?}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def profile(req: func.HttpRequest) -> func.HttpResponse:
@@ -112,3 +114,57 @@ def diag_lite(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         logging.exception("diag-lite failed")
         return func.HttpResponse(f'{{"error":"{e}"}}', mimetype="application/json", status_code=500)
+
+@app.function_name(name="diag_db")
+@app.route(route="diag-db", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def diag_db(req: func.HttpRequest) -> func.HttpResponse:
+    info = {"has_db_url": bool(os.getenv("DATABASE_URL")), "sqlalchemy_error": "", "pymysql_error": ""}
+    # 1) Importar drivers
+    try:
+        import sqlalchemy as _sa  # noqa
+        info["has_sqlalchemy"] = True
+    except Exception as e:
+        info["has_sqlalchemy"] = False
+        info["sqlalchemy_error"] = str(e)
+
+    try:
+        import pymysql as _pm  # noqa
+        info["has_pymysql"] = True
+    except Exception as e:
+        info["has_pymysql"] = False
+        info["pymysql_error"] = str(e)
+
+    # 2) Descomponer URL y probar DNS/TCP 3306
+    dsn = os.getenv("DATABASE_URL", "")
+    host = None
+    try:
+        # sqlalchemy URL; para parseo básico usamos urlparse sobre la parte después de '://'
+        # ejemplo mysql+pymysql://user:pass@host:3306/db
+        host = dsn.split("@", 1)[-1].split("/", 1)[0].split(":")[0] if dsn else None
+        info["db_host"] = host
+        if host:
+            ip = socket.gethostbyname(host)
+            info["db_host_ip"] = ip
+            with socket.create_connection((host, 3306), timeout=5):
+                info["tcp_3306_ok"] = True
+        else:
+            info["tcp_3306_ok"] = False
+    except Exception as e:
+        info["tcp_3306_ok"] = False
+        info["tcp_error"] = str(e)
+
+    # 3) Probar SELECT 1 con SQLAlchemy (TLS implícito)
+    try:
+        eng = _get_engine()
+        if eng is None:
+            info["engine"] = "not-initialized"
+        else:
+            from sqlalchemy import text
+            with eng.connect() as c:
+                c.execute(text("SELECT 1"))
+            info["engine_connect_ok"] = True
+    except Exception as e:
+        info["engine_connect_ok"] = False
+        info["engine_error"] = str(e)
+
+    return func.HttpResponse(json.dumps(info), mimetype="application/json")
