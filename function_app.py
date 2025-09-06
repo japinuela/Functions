@@ -6,6 +6,9 @@ from sqlalchemy.exc import SQLAlchemyError
 # Lee cadena desde env (en local la pondrás en local.settings.json;
 # en Azure pondrás Key Vault Reference en App Settings)
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL no está definida. Configúrala en local.settings.json o en App Settings.")
+
 
 # Crea pool global (mejor rendimiento en frío)
 engine = create_engine(
